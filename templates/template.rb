@@ -374,7 +374,10 @@ module Prism
     "src/node.c",
     "src/prettyprint.c",
     "src/serialize.c",
-    "src/token_type.c"
+    "src/token_type.c",
+    "node/src/node.js",
+    "node/src/serialize.js",
+    "node/src/visitor.js",
   ]
 end
 

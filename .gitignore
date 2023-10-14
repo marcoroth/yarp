@@ -34,6 +34,9 @@ a.out
 /lib/prism/mutation_compiler.rb
 /lib/prism/node.rb
 /lib/prism/serialize.rb
+/node/src/node.js
+/node/src/serialize.js
+/node/src/visitor.js
 /lib/prism/visitor.rb
 /src/node.c
 /src/prettyprint.c

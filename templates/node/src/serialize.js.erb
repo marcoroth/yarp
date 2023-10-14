@@ -1,0 +1,299 @@
+import { Readable } from 'stream'
+import crypto from 'crypto'
+
+import {
+    Source,
+    Comment,
+    MagicComment,
+    Location,
+    Token,
+    ParseResult,
+} from "./source.js"
+
+// function unpack1WithOffset(buffer, offset, format) {
+//   if (offset === 0) {
+//     return buffer.read(format, offset);
+//   } else {
+//     return unpack1WithOffset(buffer.slice(offset), 0, format);
+//   }
+// }
+
+class Loader {
+  constructor(source, serialized) {
+    this.encoding = 'utf8';
+    this.input = source.source.slice();
+    this.serialized = serialized;
+
+    this.io = new Readable();
+    this.io.push(serialized);
+    this.io.push(null);
+    this.io.setEncoding('binary');
+
+    this.constantPoolOffset = null;
+    this.constantPool = null;
+    this.source = source;
+  }
+
+  loadEncoding() {
+    return this.io.read(this.loadVarint());
+  }
+
+  loadMetadata() {
+    const comments = this.loadVarint();
+
+    const commentsArray = Array(comments).fill().map(() => {
+      const type = Comment.TYPES[this.loadVarint()];
+      const location = this.loadLocation();
+
+      return new Comment(type, location);
+    });
+
+    const magicComments = this.loadVarint();
+
+    const magicCommentsArray = Array(magicComments).fill().map(() => {
+      const start = this.loadLocation();
+      const end = this.loadLocation();
+
+      return new MagicComment(start, end);
+    });
+
+    const errors = this.loadVarint();
+
+    const errorsArray = Array(errors).fill().map(() => {
+      const message = this.loadEmbeddedString();
+      const location = this.loadLocation();
+
+      return new ParseError(message, location);
+    });
+
+    const warnings = this.loadVarint();
+
+    const warningsArray = Array(warnings).fill().map(() => {
+      const message = this.loadEmbeddedString();
+      const location = this.loadLocation();
+
+      return new ParseWarning(message, location);
+    });
+
+    return [
+      commentsArray,
+      magicCommentsArray,
+      errorsArray,
+      warningsArray
+    ];
+  }
+
+  loadTokens() {
+    const tokens = [];
+
+    let type;
+
+    while (type = TOKEN_TYPES[this.loadVarint()]) {
+      const start = this.loadVarint();
+      const length = this.loadVarint();
+      const lexState = this.loadVarint();
+      const location = new Location(this.source, start, length);
+
+      tokens.push([new Token(type, location.slice(), location), lexState]);
+    }
+
+    return tokens;
+  }
+
+  loadTokensResult() {
+    const tokens = this.loadTokens();
+    const encoding = this.loadEncoding();
+    const metadata = this.loadMetadata();
+
+    if (encoding !== this.encoding) {
+      tokens.forEach(([token]) => token.value = token.value.toString(encoding));
+    }
+
+    return new ParseResult(tokens, ...metadata, this.source);
+  }
+
+  loadNodes() {
+    if (this.io.read(5) !== 'PRISM') throw new Error('Invalid serialization');
+
+    const version = this.io.read(3).split('').map(n => parseInt(n.charCodeAt(0), 10));
+
+    if (version[0] !== Prism.MAJOR_VERSION || version[1] !== Prism.MINOR_VERSION || version[2] !== Prism.PATCH_VERSION) {
+      throw new Error('Invalid serialization');
+    }
+
+    const onlySemanticFields = Number(this.io.read(1))
+
+    if (onlySemanticFields !== 0) {
+      throw new Error('Invalid serialization (location fields must be included but are not)');
+    }
+
+    this.encoding = this.loadEncoding();
+    this.input = this.input.toString(this.encoding).slice();
+
+    const metadata = this.loadMetadata();
+
+    this.constantPoolOffset = this.io.read(4).readUInt32LE(0);
+    this.constantPool = Array(this.loadVarint()).fill(null);
+
+    return [this.loadNode(), ...metadata];
+  }
+
+  loadResult() {
+    const [node, ...metadata] = this.loadNodes();
+
+    return new ParseResult(node, ...metadata, this.source);
+  }
+
+  loadVarint() {
+    let n = Number(this.io.read(1));
+
+    if (n < 128) return n;
+    n -= 128;
+    let shift = 0;
+
+    while (true) {
+      const b = Number(this.io.read(1));
+      if (b >= 128) {
+        n += (b - 128) << shift;
+        shift += 7;
+      } else {
+        return n + (b << (shift + 7));
+      }
+    }
+  }
+
+  loadSerializedLength() {
+    return this.io.read(4).readUInt32LE(0);
+  }
+
+  loadOptionalNode() {
+    if (this.io.read(1).readUInt8(0) !== 0) {
+      this.io.push('0');
+      return this.loadNode();
+    }
+  }
+
+  loadEmbeddedString() {
+    return this.io.read(this.loadVarint()).toString(this.encoding);
+  }
+
+  loadString() {
+    const type = this.io.read(1).readUInt8(0);
+    if (type === 1) {
+      const start = this.loadVarint();
+      const length = this.loadVarint();
+      return this.input.slice(start, start + length).toString(this.encoding);
+    } else if (type === 2) {
+      return this.loadEmbeddedString();
+    } else {
+      throw new Error(`Unknown serialized string type: ${type}`);
+    }
+  }
+
+  loadLocation() {
+    return new Location(this.source, this.loadVarint(), this.loadVarint());
+  }
+
+  loadOptionalLocation() {
+    if (this.io.read(1).readUInt8(0) !== 0) {
+      this.io.push('0');
+
+      return this.loadLocation();
+    }
+  }
+
+  loadConstant(index) {
+    let constant = this.constantPool[index];
+
+    if (!constant) {
+      const offset = this.constantPoolOffset + index * 9;
+      this.input.readUInt8(0, offset);
+      constant = [this.loadString(), this.loadOptionalLocation()];
+      this.constantPool[index] = constant;
+    }
+
+    return constant;
+  }
+
+  loadNode() {
+    const type = this.io.read(1).readUInt8(0)
+    const location = this.loadLocation()
+
+    switch (type) {
+      <%- nodes.each_with_index do |node, index| -%>
+      case <%= index + 1 %>:
+        <%- if node.needs_serialized_length? -%>
+        this.loadSerializedLength()
+        <%- end -%>
+        return new <%= node.name %>(<%= (node.fields.map { |field|
+          case field
+          when Prism::NodeField then "this.loadNode()"
+          when Prism::OptionalNodeField then "this.loadOptionalNode()"
+          when Prism::StringField then "this.loadString()"
+          when Prism::NodeListField then "(new Array(this.loadVarint()).fill(this.loadNode()))"
+          when Prism::ConstantField then "this.loadRequiredConstant()"
+          when Prism::OptionalConstantField then "this.loadOptionalConstant()"
+          when Prism::ConstantListField then "(new Array(this.loadVarint()).fill(this.loadRequiredConstant()))"
+          when Prism::LocationField then "this.loadLocation()"
+          when Prism::OptionalLocationField then "this.loadOptionalLocation()"
+          when Prism::UInt32Field, Prism::FlagsField then "this.loadVarint()"
+          else raise
+          end
+      } + ["location"]).join(", ") -%>)
+      <%- end -%>
+    }
+  }
+}
+
+const TOKEN_TYPES = [
+  null,
+  <%- tokens.each do |token| -%>
+  <%= token.name.inspect %>,
+  <%- end -%>
+];
+
+class Leaf {
+  constructor(type, location) {
+    this.type = type;
+    this.location = location;
+  }
+}
+
+class Arg {
+  constructor(name, value) {
+    this.name = name;
+    this.value = value;
+  }
+}
+
+class Branch {
+  constructor(type, name, args) {
+    this.type = type;
+    this.name = name;
+    this.args = args;
+  }
+}
+
+export class Serialize {
+  static MAJOR_VERSION = 0;
+  static MINOR_VERSION = 14;
+  static PATCH_VERSION = 0;
+
+  static load(input, serialized) {
+    input = input.slice();
+
+    const source = new Source(input);
+    const loader = new Loader(source, serialized);
+    const result = loader.loadResult();
+
+    input = input.toString(loader.encoding);
+
+    return result;
+  }
+
+  static loadTokens(source, serialized) {
+    const loader = new Loader(source, serialized);
+
+    return loader.loadTokensResult();
+  }
+}
