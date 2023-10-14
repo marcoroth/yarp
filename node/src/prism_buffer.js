@@ -1,7 +1,5 @@
 import { LibRubyParser } from "./librubyparser.js"
 
-import ref from "ref-napi"
-
 export class PrismBuffer {
   static SIZEOF = LibRubyParser.pm_buffer_sizeof()
 

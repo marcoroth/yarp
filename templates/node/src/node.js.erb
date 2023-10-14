@@ -127,17 +127,17 @@ export class Node {
   }
 
   // def copy: (**params) -> <%= node.name %>
-  copy(...args) {
+  copy(options = {}) {
     return new <%= node.name %>(
     <%- (node.fields.map(&:name) + ["location"]).map do |name| -%>
-      args["<%= name %>"] || this.<%= name %>,
+      options.<%= name %> || this.<%= name %>,
     <%- end -%>
     )
   }
 
   // def deconstruct: () -> Array[nil | Node]
-  deconstruct(...args) {
-    return this.child_nodes(...args)
+  deconstruct() {
+    return this.childNodes()
   }
 
   // def deconstruct_keys: (keys: Array[Symbol]) -> Hash[Symbol, nil | Node | Array[Node] | String | Token | Array[Token] | Location]

@@ -18,6 +18,7 @@ export class PrismString {
   read() {
     const source = this.source()
 
+    // TODO: check if source.readCString() is right here.
     return source ? source.readCString() : null
   }
 
