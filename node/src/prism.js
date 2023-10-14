@@ -38,5 +38,5 @@ class Prism {
 
 console.log(Prism.version)
 
-console.log(Prism.dump(`class HelloWorld; end`))
+console.log(Prism.dump('puts "Hello World"'))
 console.log(Prism.dumpFile('./test.rb'))

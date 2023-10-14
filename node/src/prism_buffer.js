@@ -18,9 +18,16 @@ export class PrismBuffer {
   }
 
   read() {
-    const value = this.value();
+    const valuePointer = this.value();
+    const length = this.length();
 
-    return value ? value.readCString() : null
+    const buffer = Buffer.from(
+      valuePointer.buffer,
+      valuePointer.byteOffset,
+      length
+    );
+
+    return buffer.toString();
   }
 
   static with(callback) {
