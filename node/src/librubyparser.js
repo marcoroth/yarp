@@ -18,6 +18,8 @@ const LibRubyParser = ffi.Library('../build/librubyparser.dylib', {
   'pm_parse_serialize': ['void', ['pointer', 'size_t', 'pointer', 'string']],
 
   'pm_lex_serialize': ['void', ['pointer', 'size_t', 'string', 'pointer']],
+
+  'pm_parse_lex_serialize': ['void', ['pointer', 'size_t', 'pointer', 'string']],
 })
 
 export {
