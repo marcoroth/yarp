@@ -64,6 +64,16 @@ export class Prism {
     })
   }
 
+  static parse(code, filepath = null) {
+    return Serialize.load(code, this.dump(code, filepath))
+  }
+
+  static parseFile(filepath) {
+    return PrismString.with(filepath, string => {
+      return this.parse(string.read(), filepath)
+    })
+  }
+
   static parseLex(code, filepath = null) {
     return PrismBuffer.with(buffer => {
       const metadata = filepath
