@@ -18,7 +18,7 @@ import {
 //   }
 // }
 
-class Loader {
+export class Loader {
   constructor(source, serialized) {
     this.encoding = 'utf8';
     this.input = source.source.slice();
@@ -145,14 +145,15 @@ class Loader {
   }
 
   loadVarint() {
-    let n = Number(this.io.read(1));
+    let n = this.io.read(1).charCodeAt(0);
 
     if (n < 128) return n;
     n -= 128;
     let shift = 0;
 
     while (true) {
-      const b = Number(this.io.read(1));
+      const b = this.io.read(1).charCodeAt(0);
+
       if (b >= 128) {
         n += (b - 128) << shift;
         shift += 7;

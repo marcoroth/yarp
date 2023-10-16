@@ -2,19 +2,21 @@
   "name": "prism",
   "version": "0.1.0",
   "description": "Node bindings to Ruby's prism parsing library",
-  "main": "src/prism.js",
+  "main": "src/index.js",
   "type": "module",
   "repository": "https://github.com/ruby/prism",
   "author": "Marco Roth",
   "license": "MIT",
   "private": false,
   "devDependencies": {
-    "node-gyp": "^9.4.0"
+    "node-gyp": "^9.4.0",
+    "vitest": "^1.0.0-beta.2"
   },
   "dependencies": {
     "ffi-napi": "^4.0.3"
   },
   "scripts": {
-    "test": "node test.js"
+    "postinstall": "bundle exec rake compile",
+    "test": "vitest --pool=forks"
   }
 }

@@ -1,7 +1,7 @@
 export class Source {
   constructor(source) {
     this.source = source;
-    this.offsets = this.computeOffsets(source);
+    this.offsets = this.#computeOffsets(source);
   }
 
   slice(offset, length) {
@@ -9,7 +9,11 @@ export class Source {
   }
 
   line(value) {
-    return this.offsets.findIndex((offset) => offset > value) + 1;
+    if (value < 0) return 0
+
+    const offset = this.offsets.findIndex(offset => offset > value)
+
+    return offset > 0 ? offset : this.offsets.length
   }
 
   lineOffset(value) {
@@ -20,7 +24,7 @@ export class Source {
     return value - this.offsets[this.line(value) - 1];
   }
 
-  computeOffsets(code) {
+  #computeOffsets(code) {
     const offsets = [0];
 
     for (let i = 0; i < code.length; i++) {
@@ -126,7 +130,10 @@ export class Comment {
   }
 
   deconstructKeys(keys) {
-    return { type: this.type, location: this.location };
+    return {
+      type: this.type,
+      location: this.location
+    };
   }
 
   trailing() {
@@ -153,7 +160,10 @@ export class MagicComment {
   }
 
   deconstructKeys(keys) {
-    return { keyLoc: this.keyLoc, valueLoc: this.valueLoc };
+    return {
+      keyLoc: this.keyLoc,
+      valueLoc: this.valueLoc
+    };
   }
 
   inspect() {
@@ -168,7 +178,10 @@ export class ParseError {
   }
 
   deconstructKeys(keys) {
-    return { message: this.message, location: this.location };
+    return {
+      message: this.message,
+      location: this.location
+    };
   }
 
   inspect() {
@@ -183,7 +196,10 @@ export class ParseWarning {
   }
 
   deconstructKeys(keys) {
-    return { message: this.message, location: this.location };
+    return {
+      message: this.message,
+      location: this.location
+    };
   }
 
   inspect() {
@@ -192,8 +208,8 @@ export class ParseWarning {
 }
 
 export class ParseResult {
-  constructor(node, comments, magicComments, errors, warnings, source) {
-    this.node = node;
+  constructor(value, comments, magicComments, errors, warnings, source) {
+    this.value = value;
     this.comments = comments;
     this.magicComments = magicComments;
     this.errors = errors;
@@ -203,7 +219,7 @@ export class ParseResult {
 
   deconstructKeys(keys) {
     return {
-      node: this.node,
+      value: this.value,
       comments: this.comments,
       magicComments: this.magicComments,
       errors: this.errors,
@@ -228,7 +244,11 @@ export class Token {
   }
 
   deconstructKeys(keys) {
-    return { type: this.type, value: this.value, location: this.location };
+    return {
+      type: this.type,
+      value: this.value,
+      location: this.location
+    };
   }
 
   prettyPrint() {
