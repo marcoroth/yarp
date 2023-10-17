@@ -1,15 +1,15 @@
 {
-  "name": "prism",
+  "name": "@ruby/prism",
   "version": "0.1.0",
   "description": "Node bindings to Ruby's prism parsing library",
   "main": "src/index.js",
   "type": "module",
   "repository": "https://github.com/ruby/prism",
+  "homepage": "https://github.com/ruby/prism/tree/main/node",
   "author": "Marco Roth",
   "license": "MIT",
   "private": false,
   "devDependencies": {
-    "node-gyp": "^9.4.0",
     "vitest": "^1.0.0-beta.2"
   },
   "dependencies": {
