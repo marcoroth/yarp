@@ -1,5 +1,5 @@
 export * from "./librubyparser.js"
-// export * from "./node.js"
+export * from "./node.js"
 export * from "./prism_buffer.js"
 export * from "./prism_string.js"
 export * from "./prism.js"

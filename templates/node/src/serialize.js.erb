@@ -1,22 +1,15 @@
 import { Readable } from 'stream'
-import crypto from 'crypto'
+import * as Node from "./node.js"
 
 import {
-    Source,
-    Comment,
-    MagicComment,
-    Location,
-    Token,
-    ParseResult,
+  Source,
+  Comment,
+  MagicComment,
+  Location,
+  Token,
+  ParseResult,
+  ParseError,
 } from "./source.js"
-
-// function unpack1WithOffset(buffer, offset, format) {
-//   if (offset === 0) {
-//     return buffer.read(format, offset);
-//   } else {
-//     return unpack1WithOffset(buffer.slice(offset), 0, format);
-//   }
-// }
 
 export class Loader {
   constructor(source, serialized) {
@@ -117,11 +110,11 @@ export class Loader {
 
     const version = this.io.read(3).split('').map(n => parseInt(n.charCodeAt(0), 10));
 
-    if (version[0] !== Prism.MAJOR_VERSION || version[1] !== Prism.MINOR_VERSION || version[2] !== Prism.PATCH_VERSION) {
+    if (version[0] !== Serialize.MAJOR_VERSION || version[1] !== Serialize.MINOR_VERSION || version[2] !== Serialize.PATCH_VERSION) {
       throw new Error('Invalid serialization');
     }
 
-    const onlySemanticFields = Number(this.io.read(1))
+    const onlySemanticFields = this.io.read(1).charCodeAt(0);
 
     if (onlySemanticFields !== 0) {
       throw new Error('Invalid serialization (location fields must be included but are not)');
@@ -132,7 +125,7 @@ export class Loader {
 
     const metadata = this.loadMetadata();
 
-    this.constantPoolOffset = this.io.read(4).readUInt32LE(0);
+    this.constantPoolOffset = this.io.read(4)
     this.constantPool = Array(this.loadVarint()).fill(null);
 
     return [this.loadNode(), ...metadata];
@@ -164,25 +157,32 @@ export class Loader {
   }
 
   loadSerializedLength() {
-    return this.io.read(4).readUInt32LE(0);
+    return this.io.read(4)
   }
 
   loadOptionalNode() {
-    if (this.io.read(1).readUInt8(0) !== 0) {
-      this.io.push('0');
+    const optionalNode = this.io.read(1)
+
+    if (optionalNode && optionalNode.charCodeAt(0) !== 0) {
+      this.io.unshift(optionalNode);
+
       return this.loadNode();
     }
   }
 
   loadEmbeddedString() {
-    return this.io.read(this.loadVarint()).toString(this.encoding);
+    const string = this.io.read(this.loadVarint()).toString(this.encoding)
+    console.log(string)
+    return string;
   }
 
   loadString() {
-    const type = this.io.read(1).readUInt8(0);
+    const type = this.io.read(1).charCodeAt(0);
+
     if (type === 1) {
       const start = this.loadVarint();
       const length = this.loadVarint();
+
       return this.input.slice(start, start + length).toString(this.encoding);
     } else if (type === 2) {
       return this.loadEmbeddedString();
@@ -196,8 +196,10 @@ export class Loader {
   }
 
   loadOptionalLocation() {
-    if (this.io.read(1).readUInt8(0) !== 0) {
-      this.io.push('0');
+    const optionalLocation = this.io.read(1)
+
+    if (optionalLocation && optionalLocation.charCodeAt(0) !== 0) {
+      this.io.unshift(optionalLocation);
 
       return this.loadLocation();
     }
@@ -207,18 +209,39 @@ export class Loader {
     let constant = this.constantPool[index];
 
     if (!constant) {
-      const offset = this.constantPoolOffset + index * 9;
-      this.input.readUInt8(0, offset);
-      constant = [this.loadString(), this.loadOptionalLocation()];
+      const offset = this.constantPoolOffset + index * 8;
+      const start = this.serialized.slice(offset);
+      const length = this.serialized.slice(offset + 4);
+
+      if (!(start & (1 << 31))) {
+        constant = this.input.slice(start, start + length).toString();
+      } else {
+        constant = this.serialized.slice(start & ((1 << 31) - 1), start & ((1 << 31) - 1) + length).toString();
+      }
+
       this.constantPool[index] = constant;
     }
 
     return constant;
   }
 
+  loadRequiredConstant() {
+    return this.loadConstant(this.loadVarint() - 1)
+  }
+
+  loadOptionalConstant() {
+    const index = this.loadVarint()
+
+    if (index != 0) {
+      return this.loadConstant(index - 1)
+    }
+  }
+
   loadNode() {
-    const type = this.io.read(1).readUInt8(0)
+    const type = this.io.read(1).charCodeAt(0)
     const location = this.loadLocation()
+
+    let node
 
     switch (type) {
       <%- nodes.each_with_index do |node, index| -%>
@@ -226,15 +249,15 @@ export class Loader {
         <%- if node.needs_serialized_length? -%>
         this.loadSerializedLength()
         <%- end -%>
-        return new <%= node.name %>(<%= (node.fields.map { |field|
+        node = new Node.<%= node.name %>(<%= (node.fields.map { |field|
           case field
           when Prism::NodeField then "this.loadNode()"
           when Prism::OptionalNodeField then "this.loadOptionalNode()"
           when Prism::StringField then "this.loadString()"
-          when Prism::NodeListField then "(new Array(this.loadVarint()).fill(this.loadNode()))"
+          when Prism::NodeListField then "Array(this.loadVarint()).fill().map(() => this.loadNode())"
           when Prism::ConstantField then "this.loadRequiredConstant()"
           when Prism::OptionalConstantField then "this.loadOptionalConstant()"
-          when Prism::ConstantListField then "(new Array(this.loadVarint()).fill(this.loadRequiredConstant()))"
+          when Prism::ConstantListField then "Array(this.loadVarint()).fill().map(() => this.loadRequiredConstant())"
           when Prism::LocationField then "this.loadLocation()"
           when Prism::OptionalLocationField then "this.loadOptionalLocation()"
           when Prism::UInt32Field, Prism::FlagsField then "this.loadVarint()"
@@ -242,7 +265,11 @@ export class Loader {
           end
       } + ["location"]).join(", ") -%>)
       <%- end -%>
+      default:
+        throw new Error(`Unknown Node type ${type}`)
     }
+
+    return node
   }
 }
 

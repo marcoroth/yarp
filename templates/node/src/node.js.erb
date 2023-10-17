@@ -1,3 +1,5 @@
+<%- field_name = ->(name) { name == "arguments" ? "args" : name } %>
+
 export class Node {
   get location() {
     return this.location
@@ -38,18 +40,19 @@ export class Node {
 
 <%= "#{node.comment.split("\n").map { |line| line.empty? ? "//" : "// #{line}" }.join("\n")}\n" if node.comment %>export class <%= node.name -%> extends Node {
   <%- node.fields.each do |field| -%>
-  // attr_reader <%= field.name %>: <%= field.rbs_class %>
-  <%= "#" if field.is_a?(Prism::FlagsField) %><%= field.name %>() {
-    return this.<%= field.name %>
+  // attr_reader <%= field_name.call(field.name) %>: <%= field.rbs_class %>
+  <%= "#" if field.is_a?(Prism::FlagsField) %><%= field_name.call(field.name) %>() {
+    return this.<%= field_name.call(field.name) %>
   }
 
   <%- end -%>
-  // def initialize: (<%= (node.fields.map { |field| "#{field.name}: #{field.rbs_class}" } + ["location: Location"]).join(", ") %>) -> void
-  constructor(<%= (node.fields.map(&:name) + ["location"]).join(", ") %>) {
+  // def initialize: (<%= (node.fields.map { |field| "#{field_name.call(field.name)}: #{field.rbs_class}" } + ["location: Location"]).join(", ") %>) -> void
+  constructor(<%= (node.fields.map { |field| field_name.call(field.name) } + ["location"]).join(", ") %>) {
+    super(location)
     <%- node.fields.each do |field| -%>
-    this.<%= field.name %> = <%= field.name %>
+    this.<%= field_name.call(field.name) %> = <%= field_name.call(field.name) %>
     <%- end -%>
-    this.location = location
+    // this.location = location
   }
 
   // def accept: (visitor: Visitor) -> void
@@ -68,10 +71,12 @@ export class Node {
     <%- field = node.fields.find { |f| f.name == node.newline } or raise node.newline -%>
     <%- case field -%>
     <%- when Prism::NodeField, Prism::OptionalNodeField -%>
-    <%= field.name %>.set_newline_flag(newline_marked)
+    <%= field_name.call(field.name) %>.set_newline_flag(newline_marked)
     <%- when Prism::NodeListField -%>
-    first = <%= field.name %>.first
-    first.set_newline_flag(newline_marked) if first
+    const first = <%= field_name.call(field.name) %>[0]
+    if (first) {
+      first.setNewlineFlag(newline_marked)
+    }
     <%- else raise field.class.name -%>
     <%- end -%>
   }
@@ -80,8 +85,8 @@ export class Node {
   childNodes() {
     return [<%= node.fields.map { |field|
     case field
-    when Prism::NodeField, Prism::OptionalNodeField then "this.#{field.name}"
-    when Prism::NodeListField then "...this.#{field.name}"
+    when Prism::NodeField, Prism::OptionalNodeField then "this.#{field_name.call(field.name)}"
+    when Prism::NodeListField then "...this.#{field_name.call(field.name)}"
     end
     }.compact.join(", ") %>]
   }
@@ -94,14 +99,14 @@ export class Node {
     <%- node.fields.each do |field| -%>
     <%- case field -%>
     <%- when Prism::NodeField -%>
-    compact.push(this.<%= field.name %>)
+    compact.push(this.<%= field_name.call(field.name) %>)
 
     <%- when Prism::OptionalNodeField -%>
-    if (this.<%= field.name %>) {
-      compact.push(this.<%= field.name %>)
+    if (this.<%= field_name.call(field.name) %>) {
+      compact.push(this.<%= field_name.call(field.name) %>)
     }
     <%- when Prism::NodeListField -%>
-    compact.concat(this.<%= field.name %>)
+    compact.concat(this.<%= field_name.call(field.name) %>)
     <%- end -%>
     <%- end -%>
 
@@ -109,8 +114,8 @@ export class Node {
     <%- else -%>
     return [<%= node.fields.map { |field|
     case field
-    when Prism::NodeField then "this.#{field.name}"
-    when Prism::NodeListField then "...this.#{field.name}"
+    when Prism::NodeField then "this.#{field_name.call(field.name)}"
+    when Prism::NodeListField then "...this.#{field_name.call(field.name)}"
     end
     }.compact.join(", ") %>]
     <%- end -%>
@@ -120,8 +125,8 @@ export class Node {
   commentTargets() {
     return [<%= node.fields.map { |field|
     case field
-    when Prism::NodeField, Prism::LocationField then "this.#{field.name}"
-    when Prism::OptionalNodeField, Prism::NodeListField, Prism::OptionalLocationField then "...this.#{field.name}"
+    when Prism::NodeField, Prism::LocationField then "this.#{field_name.call(field.name)}"
+    when Prism::OptionalNodeField, Prism::NodeListField, Prism::OptionalLocationField then "...this.#{field_name.call(field.name)}"
     end
     }.compact.join(", ") %>]
   }
@@ -143,26 +148,26 @@ export class Node {
   // def deconstruct_keys: (keys: Array[Symbol]) -> Hash[Symbol, nil | Node | Array[Node] | String | Token | Array[Token] | Location]
   deconstructKeys(keys) {
     return {
-      <%= (node.fields.map { |field| "#{field.name}: this.#{field.name}" } + ["location: this.location"]).join(", \n      ") %>
+      <%= (node.fields.map { |field| "#{field_name.call(field.name)}: this.#{field_name.call(field.name)}" } + ["location: this.location"]).join(", \n      ") %>
     }
   }
   <%- node.fields.each do |field| -%>
   <%- case field -%>
   <%- when Prism::LocationField -%>
   <%- raise unless field.name.end_with?("_loc") -%>
-  <%- next if node.fields.any? { |other| other.name == field.name.delete_suffix("_loc") } -%>
+  <%- next if node.fields.any? { |other| other.name == field_name.call(field.name).delete_suffix("_loc") } -%>
 
-  // def <%= field.name.delete_suffix("_loc") %>: () -> String
-  <%= field.name.delete_suffix("_loc") %>() {
-    return this.<%= field.name %>.slice
+  // def <%= field_name.call(field.name).delete_suffix("_loc") %>: () -> String
+  <%= field_name.call(field.name).delete_suffix("_loc") %>() {
+    return this.<%= field_name.call(field.name) %>.slice
   }
   <%- when Prism::OptionalLocationField -%>
   <%- raise unless field.name.end_with?("_loc") -%>
-  <%- next if node.fields.any? { |other| other.name == field.name.delete_suffix("_loc") } -%>
+  <%- next if node.fields.any? { |other| other.name == field_name.call(field.name).delete_suffix("_loc") } -%>
 
-  // def <%= field.name.delete_suffix("_loc") %>: () -> String?
-  <%= field.name.delete_suffix("_loc") %>() {
-    <%= field.name %>?.slice
+  // def <%= field_name.call(field.name).delete_suffix("_loc") %>: () -> String?
+  <%= field_name.call(field.name).delete_suffix("_loc") %>() {
+    <%= field_name.call(field.name) %>?.slice
   }
   <%- when Prism::FlagsField -%>
   <%- flags.find { |flag| flag.name == field.kind }.tap { |flag| raise "Expected to find #{field.kind}" unless flag }.values.each do |value| -%>
@@ -170,7 +175,7 @@ export class Node {
   // def <%= value.name.downcase %>?: () -> bool
   get <%= value.name.downcase %>() {
     // TODO: fixme
-    // return <%= field.name %>.anybits?(<%= field.kind %>::<%= value.name %>)
+    // return <%= field_name.call(field.name) %>.anybits?(<%= field.kind %>::<%= value.name %>)
   }
   <%- end -%>
   <%- end -%>
@@ -212,10 +217,10 @@ export class Node {
 <%- end -%>
 <%- flags.each_with_index do |flag, flag_index| -%>
 
-module <%= flag.name %>
+class <%= flag.name %> {
   <%- flag.values.each_with_index do |value, index| -%>
   // <%= value.comment %>
-  <%= value.name %> = 1 << <%= index %>
+  static <%= value.name %> = 1 << <%= index %>
 <%= "\n" if value != flag.values.last -%>
   <%- end -%>
 }
