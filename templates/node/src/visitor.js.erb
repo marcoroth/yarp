@@ -40,6 +40,7 @@ export class BasicVisitor {
 // }
 export class Visitor extends BasicVisitor {
 <%- nodes.each_with_index do |node, index| -%>
+<% # TODO: camelize method names %>
 <%= "\n" if index != 0 -%>
   // Visit a <%= node.name %> node
   visit_<%= node.human %>(node) {
