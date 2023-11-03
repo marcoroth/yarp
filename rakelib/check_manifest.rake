@@ -1,5 +1,5 @@
 desc "Perform a sanity check on the gemspec file list"
-task :check_manifest => [:templates] do
+task check_manifest: :templates do
   raw_gemspec = Bundler.load_gemspec("prism.gemspec")
 
   ignore_directories = %w[
@@ -15,6 +15,7 @@ task :check_manifest => [:templates] do
     build
     doc
     fuzz
+    javascript
     java
     pkg
     rakelib
@@ -33,6 +34,7 @@ task :check_manifest => [:templates] do
     .gitignore
     .gitmodules
     *.iml
+    Doxyfile
     Gemfile
     Gemfile.lock
     Makefile

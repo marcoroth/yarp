@@ -1,6 +1,6 @@
 <h1 align="center">Prism Ruby parser</h1>
 <div align="center">
-  <img alt="Prism Ruby parser" height="256px" src="https://github.com/ruby/prism/blob/main/docs/prism.png?raw=true">
+  <img alt="Prism Ruby parser" height="256px" src="https://github.com/ruby/prism/blob/main/doc/images/prism.png?raw=true">
 </div>
 
 This is a parser for the Ruby programming language. It is designed to be portable, error tolerant, and maintainable. It is written in C99 and has no dependencies. It is currently being integrated into [CRuby](https://github.com/ruby/ruby), [JRuby](https://github.com/jruby/jruby), [TruffleRuby](https://github.com/oracle/truffleruby), [Sorbet](https://github.com/sorbet/sorbet), and [Syntax Tree](https://github.com/ruby-syntax-tree/syntax_tree).
@@ -85,7 +85,9 @@ See the [CONTRIBUTING.md](CONTRIBUTING.md) file for more information. We additio
 * [Encoding](docs/encoding.md)
 * [Fuzzing](docs/fuzzing.md)
 * [Heredocs](docs/heredocs.md)
+* [JavaScript](docs/javascript.md)
 * [Mapping](docs/mapping.md)
+* [Releasing](docs/releasing.md)
 * [Ripper](docs/ripper.md)
 * [Ruby API](docs/ruby_api.md)
 * [Serialization](docs/serialization.md)

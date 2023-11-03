@@ -38,6 +38,20 @@ jobs:
       env:
         LANG: "C"
 
+  check_annotations:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.2"
+        bundler-cache: true
+    - name: Check annotations
+      run: |
+        bundle exec rake compile
+        bundle exec rake check_annotations
+
   build:
     strategy:
       fail-fast: false
@@ -274,3 +288,23 @@ jobs:
       run: |
         scan-build bundle exec rake compile 2>&1 | tee /tmp/scan_build_output.log
         grep -q 'scan-build: No bugs found.' /tmp/scan_build_output.log
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: "3.2"
+        bundler-cache: true
+    - name: Install doxygen and dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install doxygen graphviz
+    - name: Generate the templates
+      run: bundle exec rake templates
+    - name: Check ruby coverage
+      run: bundle exec rake rdoc:coverage
+    - name: Check C coverage
+      run: doxygen Doxyfile

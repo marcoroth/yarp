@@ -6,6 +6,60 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.17.0] - 2023-11-03
+
+### Added
+
+- We now properly support forwarding arguments into arrays, like `def foo(*) = [*]`.
+- We now have much better documentation for the C and Ruby APIs.
+- We now properly provide an error message when attempting to assign to numbered parameters from within regular expression named capture groups, as in `/(?<_1>)/ =~ ""`.
+
+### Changed
+
+- **BREAKING**: `KeywordParameterNode` is split into `OptionalKeywordParameterNode` and `RequiredKeywordParameterNode`. `RequiredKeywordParameterNode` has no `value` field.
+- **BREAKING**: Most of the `Prism::` APIs now accept a bunch of keyword options. The options we now support are: `filepath`, `encoding`, `line`, `frozen_string_literal`, `verbose`, and `scopes`. See [the pull request](https://github.com/ruby/prism/pull/1763) for more details.
+- **BREAKING**: Comments are now split into three different classes instead of a single class, and the `type` field has been removed. They are: `InlineComment`, `EmbDocComment`, and `DATAComment`.
+
+## [0.16.0] - 2023-10-30
+
+### Added
+
+- `InterpolatedMatchLastLineNode#options` and `MatchLastLineNode#options` are added, which are the same methods as are exposed on `InterpolatedRegularExpressionNode` and `RegularExpressionNode`.
+- The project can now be compiled with `wasi-sdk` to expose a WebAssembly interface.
+- `ArgumentsNode#keyword_splat?` is added to indicate if the arguments node has a keyword splat.
+- The C API `pm_prettyprint` has a much improved output which lines up closely with `Node#inspect`.
+- Prism now ships with `RBS` and `RBI` type signatures (in the `/sig` and `/rbi` directories, respectively).
+- `Prism::parse_comments` and `Prism::parse_file_comments` APIs are added to extract only the comments from the source code.
+
+### Changed
+
+- **BREAKING**: `Multi{Target,Write}Node#targets` is split up now into `lefts`, `rest`, and `rights`. This is to avoid having to scan the list in the case that there are splat nodes.
+- Some bugs are fixed on `Multi{Target,Write}Node` accidentally creating additional nesting when not necessary.
+- **BREAKING**: `RequiredDestructuredParameterNode` has been removed in favor of using `MultiTargetNode` in those places.
+- **BREAKING**: `HashPatternNode#assocs` has been renamed to `HashPatternNode#elements`. `HashPatternNode#kwrest` has been renamed to `HashPatternNode#rest`.
+
+## [0.15.1] - 2023-10-18
+
+### Changed
+
+- Fix compilation warning on assigning to bitfield.
+
+## [0.15.0] - 2023-10-18
+
+### Added
+
+- `BackReferenceReadNode#name` is now provided.
+- `Index{Operator,And,Or}WriteNode` are introduced, split out from `Call{Operator,And,Or}WriteNode` when the method is `[]`.
+
+### Changed
+
+- Ensure `PM_NODE_FLAG_COMMON_MASK` into a constant expression to fix compile errors.
+- `super(&arg)` is now fixed.
+- Ensure the last encoding flag on regular expressions wins.
+- Fix the common whitespace calculation when embedded expressions begin on a line.
+- Capture groups in regular expressions now scan the unescaped version to get the correct local variables.
+- `*` and `&` are added to the local table when `...` is found in the parameters of a method definition.
+
 ## [0.14.0] - 2023-10-13
 
 ### Added
@@ -179,7 +233,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - 🎉 Initial release! 🎉
 
-[unreleased]: https://github.com/ruby/prism/compare/v0.14.0...HEAD
+[unreleased]: https://github.com/ruby/prism/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/ruby/prism/compare/v0.16.0...v0.17.0
+[0.16.0]: https://github.com/ruby/prism/compare/v0.15.1...v0.16.0
+[0.15.1]: https://github.com/ruby/prism/compare/v0.15.0...v0.15.1
+[0.15.0]: https://github.com/ruby/prism/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ruby/prism/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ruby/prism/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ruby/prism/compare/v0.11.0...v0.12.0
